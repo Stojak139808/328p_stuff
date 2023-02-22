@@ -8,12 +8,16 @@ SRC_DIR := src
 OBJ_DIR := $(BUILD_DIR)/obj
 BIN_DIR := $(BUILD_DIR)
 
-HEX := $(BIN_DIR)/kociara.hex
+FIRMWARE_NAME := kociara
+
+HEX := $(BIN_DIR)/$(FIRMWARE_NAME).hex
+ELF := $(BIN_DIR)/$(FIRMWARE_NAME).elf
 SRC := $(wildcard $(SRC_DIR)/*.c)
 OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
 # compiler flags
-CFLAGS := -mmcu=atmega328 -O
+CFLAGS := -mmcu=atmega328 -c -O
+LFLAGS := -mmcu=atmega328 -O
 OBJCOPYFLAGS := -O ihex
 
 # programmer
@@ -25,11 +29,14 @@ PROGFLAGS := -c arduino -p m328p -P $(PROG_PORT)
 
 all: $(HEX)
 
-$(HEX): $(OBJ) | $(BIN_DIR)
+$(HEX): $(ELF)
 	$(OBJ_COPY) $(OBJCOPYFLAGS) $^ $@
 
+$(ELF): $(OBJ) | $(BIN_DIR)
+	$(CC) $(LFLAGS) $^ -o $@
+
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
-	$(CC) -o $@ $(CFLAGS) $< 
+	$(CC) -o $@ $(CFLAGS) -c $<
 
 $(BIN_DIR) $(OBJ_DIR) $(BUILD_DIR):
 	mkdir -p $@
