@@ -9,6 +9,8 @@ static void setup(){
 }
 
 int main(){
+
+    char x[50] = {0};
     setup();
     while(1){
     }
