@@ -41,6 +41,9 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 $(BIN_DIR) $(OBJ_DIR) $(BUILD_DIR):
 	mkdir -p $@
 
+debug: CFLAGS+= -DDEBUG_BUILD
+debug: $(HEX)
+
 flash:
 	sudo $(PROG) $(PROGFLAGS) -U flash:w:$(HEX):i
 
