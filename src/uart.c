@@ -10,7 +10,7 @@ static uint8_t send_uart_from_buff(void);
 uint8_t _rx_buff[RX_BUFF_SIZE] = {0};
 uint8_t _tx_buff[TX_BUFF_SIZE] = {0};
 
-RX rx = {
+UART_PORT rx = {
     .buff = {
         .head = 0,
         .tail = 0,
@@ -20,12 +20,14 @@ RX rx = {
     .n_messages = 0
 };
 
-TX tx = {
+UART_PORT tx = {
     .buff = {
+        .head = 0,
+        .tail = 0,
         .size = TX_BUFF_SIZE,
         .data = _tx_buff
     },
-    .state = TX_READY
+    .n_messages = 0
 };
 
 ISR(USART_RX_vect){
@@ -68,19 +70,21 @@ static uint8_t read_uart_to_buff(){
 }
 
 static uint8_t send_uart_from_buff(){
-    static uint8_t i = 0;
-    UDR0 = tx.buff.data[i];
-    if( tx.buff.data[i] == TX_UART_END_CHAR ){
-        i = 0;
-        tx.state = TX_READY;
+    uint8_t buff, status;
+    status = fifo_read(&tx.buff, &buff);
+
+    if( status == FIFO_EMPTY ){
+        tx.n_messages = 0;
         return UART_DONE;
     }
-    i++;
-    if( i > TX_BUFF_SIZE ){
-        i = 0;
-        tx.state = TX_READY;
+
+    UDR0 = buff;
+
+    if( buff == TX_UART_END_CHAR ){
+        tx.n_messages--;
         return UART_DONE;
     }
+
     return UART_SUCESS;
 }
 
@@ -117,18 +121,16 @@ uint8_t read_uart_buff(char *destination){
 }
 
 uint8_t send_uart(char* message){
-    uint8_t i;
+    uint8_t status, i;
 
-    if( tx.state == TX_BUSY )
-        return UART_ERROR;
-
+    status = FIFO_SUCESS;
     i = 0;
-    while( message[i] && i < TX_BUFF_SIZE ){
-        tx.buff.data[i] = message[i];
+    while( status == FIFO_SUCESS && i < TX_BUFF_SIZE && message[i] ){
+        status = fifo_write(&tx.buff, message + i);
         i++;
     }
+    tx.n_messages++;
 
-    tx.state = TX_BUSY;
     ENABLE_TX_ISR();
     send_uart_from_buff();
 
@@ -142,5 +144,7 @@ uint8_t uart_rx_state(){
 }
 
 uint8_t uart_tx_state(){
-    return tx.state;
+    if( tx.n_messages )
+        return TX_MESSAGE;
+    return TX_EMPTY;
 }

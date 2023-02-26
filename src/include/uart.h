@@ -37,23 +37,20 @@ typedef struct{
     uint8_t* data;
 }BUFF;
 
-typedef struct{
-    BUFF buff;
-    enum{
-        TX_READY,
-        TX_BUSY
-    }state;
-}TX;
-
 enum{
     RX_MESSAGE,
     RX_EMPTY
 };
 
+enum{
+    TX_MESSAGE,
+    TX_EMPTY
+};
+
 typedef struct{
     FIFO buff;
     uint8_t n_messages;
-}RX;
+}UART_PORT;
 
 #define ENABLE_TX_ISR()     UCSR0B |= (1 << TXCIE0)
 #define DISABLE_TX_ISR()    UCSR0B &= ~(1 << TXCIE0)
