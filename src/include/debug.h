@@ -11,17 +11,17 @@
 
 #ifdef DEBUG_BUILD
     #define DEBUG_TEST 1
-    uint8_t debug_buffer[DEBUG_BUFF_SIZE] = { [0 ... DEBUG_BUFF_SIZE-1] = 0x00};
+    extern uint8_t debug_buffer[DEBUG_BUFF_SIZE];
 #else
     #define DEBUG_TEST 0
     /* this variable gets optimized away */
-    uint8_t *debug_buffer;
+    extern uint8_t *debug_buffer;
 #endif
 
 #define DEBUG(fmt, ...) \
     do { \
         if( DEBUG_TEST ){ \
-            sprintf(debug_buffer, fmt "\n\r", ##__VA_ARGS__); \
+            sprintf(debug_buffer, fmt, ##__VA_ARGS__); \
             send_uart(debug_buffer); \
         } \
     } while (0)
