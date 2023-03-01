@@ -22,7 +22,7 @@ enum fifo_status{
 #define RX_BUFF_SIZE 64u
 #define TX_BUFF_SIZE 64u
 
-#define TX_UART_END_CHAR '\r'
+#define TX_UART_END_CHAR '\0'
 #define RX_UART_END_CHAR '\r'
 
 typedef struct{
@@ -38,13 +38,13 @@ typedef struct{
 }BUFF;
 
 enum{
-    RX_MESSAGE,
-    RX_EMPTY
+    RX_EMPTY,
+    RX_MESSAGE
 };
 
 enum{
-    TX_MESSAGE,
-    TX_EMPTY
+    TX_EMPTY,
+    TX_MESSAGE
 };
 
 typedef struct{
@@ -55,10 +55,13 @@ typedef struct{
 #define ENABLE_TX_ISR()     UCSR0B |= (1 << TXCIE0)
 #define DISABLE_TX_ISR()    UCSR0B &= ~(1 << TXCIE0)
 
-void setup_uart(void);
-uint8_t read_uart_buff(char *destination);
+/* fifo functions */
 uint8_t fifo_write(FIFO *fifo, uint8_t *src);
 uint8_t fifo_read(FIFO *fifo, uint8_t *dest);
+
+/* functions to use UART */
+void setup_uart(void);
+uint8_t read_uart_buff(char *destination);
 uint8_t send_uart(char* message);
 uint8_t uart_rx_state(void);
 uint8_t uart_tx_state(void);

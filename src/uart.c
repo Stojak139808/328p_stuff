@@ -3,6 +3,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <string.h>
+#include "include/debug.h"
 
 static uint8_t read_uart_to_buff(void);
 static uint8_t send_uart_from_buff(void);
@@ -32,8 +33,9 @@ UART_PORT tx = {
 
 ISR(USART_RX_vect){
     uint8_t status = read_uart_to_buff();
-    if( status == UART_ERROR )
-        TOGGLE_LED_PIN();
+    if( status == UART_ERROR ){
+        DEBUG("BUFFER FULL\n\r");
+    }
 }
 
 ISR(USART_TX_vect){
@@ -49,7 +51,7 @@ void setup_uart(){
     UCSR0B = (1 << RXCIE0) | (1 << RXEN0) | (1 << TXEN0);
     /* enable double speed, 115200 doesn't work  */
     UCSR0A |= (1 << U2X0);
-    /* 8-bit, 2 stop bits*/
+    /* 8-bit, 1 stop bits*/
     UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
 }
 
@@ -60,8 +62,10 @@ static uint8_t read_uart_to_buff(){
     buff = UDR0;
     state = fifo_write(&rx.buff, &buff);
 
-    if( state == FIFO_FULL )
+    if( state == FIFO_FULL ){
+        rx.n_messages++;
         return UART_ERROR;
+    }
 
     if( buff == RX_UART_END_CHAR )
         rx.n_messages++;
@@ -108,16 +112,22 @@ uint8_t fifo_write(FIFO *fifo, uint8_t *src){
 }
 
 uint8_t read_uart_buff(char *destination){
-    uint8_t i;
+    uint8_t i, status;
     for( i = 0; i < RX_BUFF_SIZE; i++ ){
-        fifo_read(&rx.buff, destination + i);
+        status = fifo_read(&rx.buff, destination + i);
+        if( status == FIFO_EMPTY ){
+            rx.n_messages = 0;
+            return i;
+        }
+
         if( destination[i] == RX_UART_END_CHAR ){
             rx.n_messages--;
-            break;
+            return i;
         }
     }
+    /* loop didnt stop => entire buffer was read */
     rx.n_messages = 0;
-    return 0;
+    return i;
 }
 
 uint8_t send_uart(char* message){
@@ -131,6 +141,8 @@ uint8_t send_uart(char* message){
     }
     tx.n_messages++;
 
+    fifo_write(&tx.buff, '\0');
+
     ENABLE_TX_ISR();
     send_uart_from_buff();
 
@@ -138,13 +150,9 @@ uint8_t send_uart(char* message){
 }
 
 uint8_t uart_rx_state(){
-    if( rx.n_messages )
-        return RX_MESSAGE;
-    return RX_EMPTY;
+    return rx.n_messages;
 }
 
 uint8_t uart_tx_state(){
-    if( tx.n_messages )
-        return TX_MESSAGE;
-    return TX_EMPTY;
+    return tx.n_messages;
 }
