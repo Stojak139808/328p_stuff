@@ -54,5 +54,6 @@ help:
 	@echo "help   -   display this help"
 	@echo "all    -   (default) build the target and place it in $(BIN_DIR)"
 	@echo "flash  -   program the target"
+	@echo "debug  -   build the debug version"
 
 -include $(OBJ:.o=.d)
