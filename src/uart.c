@@ -11,7 +11,7 @@ static uint8_t send_uart_from_buff(void);
 uint8_t _rx_buff[RX_BUFF_SIZE] = {0};
 uint8_t _tx_buff[TX_BUFF_SIZE] = {0};
 
-UART_PORT rx = {
+volatile UART_PORT rx = {
     .buff = {
         .head = 0,
         .tail = 0,
@@ -21,7 +21,7 @@ UART_PORT rx = {
     .n_messages = 0
 };
 
-UART_PORT tx = {
+volatile UART_PORT tx = {
     .buff = {
         .head = 0,
         .tail = 0,
@@ -32,16 +32,18 @@ UART_PORT tx = {
 };
 
 ISR(USART_RX_vect){
+    cli();
     uint8_t status = read_uart_to_buff();
+    sei();
     if( status == UART_ERROR ){
         DEBUG("BUFFER FULL\n\r");
     }
 }
 
 ISR(USART_TX_vect){
+    cli();
     uint8_t status = send_uart_from_buff();
-    if( status == UART_DONE )
-        DISABLE_TX_ISR();
+    sei();
 }
 
 void setup_uart(){
@@ -92,22 +94,28 @@ static uint8_t send_uart_from_buff(){
     return UART_SUCESS;
 }
 
-uint8_t fifo_read(FIFO *fifo, uint8_t *dest){
+uint8_t fifo_read(volatile FIFO *fifo, uint8_t *dest){
+    cli();
     if (fifo->head == fifo->tail) {
+        sei();
         return FIFO_EMPTY;
     }
     *dest = fifo->data[fifo->tail];
     fifo->data[fifo->tail] = 0;
     fifo->tail = (fifo->tail + 1) % fifo->size;
+    sei();
     return FIFO_SUCESS;
 }
 
-uint8_t fifo_write(FIFO *fifo, uint8_t *src){
+uint8_t fifo_write(volatile FIFO *fifo, uint8_t *src){
+    cli();
     if (((fifo->head + 1) % fifo->size) == fifo->tail) {
+        sei();
         return FIFO_FULL;
     }
     fifo->data[fifo->head] = *src;
     fifo->head = (fifo->head + 1) % fifo->size;
+    sei();
     return FIFO_SUCESS; 
 }
 
@@ -122,6 +130,7 @@ uint8_t read_uart_buff(char *destination){
 
         if( destination[i] == RX_UART_END_CHAR ){
             rx.n_messages--;
+            destination[i] = '\0';
             return i;
         }
     }
@@ -130,21 +139,27 @@ uint8_t read_uart_buff(char *destination){
     return i;
 }
 
-uint8_t send_uart(char* message){
+/* force makes sure that the message is tansmitted even if the buffer is full */
+uint8_t send_uart(char* message, uint8_t force){
     uint8_t status, i;
 
     status = FIFO_SUCESS;
     i = 0;
     while( status == FIFO_SUCESS && i < TX_BUFF_SIZE && message[i] ){
-        status = fifo_write(&tx.buff, message + i);
+        do{
+            status = fifo_write(&tx.buff, message + i);
+        }while( force && status == FIFO_FULL );
         i++;
     }
     tx.n_messages++;
-
-    fifo_write(&tx.buff, '\0');
+    do{
+        status = fifo_write(&tx.buff, '\0');
+    }while( force && status == FIFO_FULL );
 
     ENABLE_TX_ISR();
-    send_uart_from_buff();
+    do{
+        status == send_uart_from_buff();
+    }while( force && status != UART_DONE );
 
     return UART_SUCESS;
 }
